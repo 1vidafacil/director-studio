@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Director Studio — Orquestador de Producción de Video</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { margin: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+</style>
+</head>
+<body class="bg-zinc-950">
+<div id="root"></div>
+
+<script type="text/babel-source" id="app-source">
+const { useState, useEffect } = React;
+
+// ── Iconos (SVG propios, sin dependencia externa) ───────────────────────────
+function Icon(props) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      className={props.className}>
+      {props.children}
+    </svg>
+  );
+}
+function Film(p) { return <Icon className={p.className}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M17 8h4M3 16h4M17 16h4"/></Icon>; }
+function Users(p) { return <Icon className={p.className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Icon>; }
+function Clapperboard(p) { return <Icon className={p.className}><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.2-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></Icon>; }
+function Scissors(p) { return <Icon className={p.className}><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></Icon>; }
+function Download(p) { return <Icon className={p.className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>; }
+function Loader2(p) { return <Icon className={p.className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Icon>; }
+function AlertCircle(p) { return <Icon className={p.className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>; }
+function ChevronRight(p) { return <Icon className={p.className}><polyline points="9 18 15 12 9 6"/></Icon>; }
+function Play(p) { return <Icon className={p.className}><polygon points="5 3 19 12 5 21 5 3"/></Icon>; }
+function FileText(p) { return <Icon className={p.className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></Icon>; }
+function Wand2(p) { return <Icon className={p.className}><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></Icon>; }
+function ImageIcon(p) { return <Icon className={p.className}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>; }
+function KeyIcon(p) { return <Icon className={p.className}><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l1.8-1.8a1 1 0 0 0 0-1.4L18.7 4.3a1 1 0 0 0-1.4 0l-1.8 1.8a1 1 0 0 0 0 1.4Z"/><path d="m11 8-8.5 8.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0L14 11"/><path d="m8.5 12.5 1.5 1.5"/></Icon>; }
+
+const MODELO_IMAGEN = "imagen-nano-banana-2-flash";
+const MODELO_VIDEO = "kling-25";
+const ESTILO_DEFAULT = "Fotorrealista cinematográfico, iluminación dramática y motivada, óptica de cine (lente 35mm/50mm), profundidad de campo, color grading cálido con sombras ricas, grano sutil de película, composición según regla de tercios, calidad 8K, detalle hiperrealista de piel y materiales.";
+const TABS = [
+  { id: "guion", label: "Guion", icon: FileText },
+  { id: "audio", label: "Audio", icon: Play },
+  { id: "personajes", label: "Personajes", icon: Users },
+  { id: "shots", label: "Shots", icon: Clapperboard },
+  { id: "edicion", label: "Edición", icon: Scissors },
+  { id: "export", label: "Exportar", icon: Download },
+];
+
+// ── Llamadas a Anthropic directo desde el navegador (BYOK) ──────────────────
+// Cada visitante usa SU PROPIA API key, guardada solo en su navegador. Nunca
+// se envía a ningún servidor del creador de esta herramienta — no hay backend.
+function getApiKey() {
+  try { return localStorage.getItem("ds_api_key") || ""; } catch (e) { return ""; }
+}
+
+async function anthropicFetch(body) {
+  var key = getApiKey();
+  if (!key) throw new Error("Falta tu API key de Anthropic. Configúrala arriba (ícono de llave) para usar esta función.");
+  var res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    var errText = "";
+    try { errText = (await res.json()).error?.message || ""; } catch (e) {}
+    throw new Error("Error de la API (" + res.status + ")" + (errText ? ": " + errText : ""));
+  }
+  return res.json();
+}
+
+async function callClaude(system, userContent, maxTokens) {
+  var data = await anthropicFetch({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: maxTokens || 1000,
+    system: system,
+    messages: [{ role: "user", content: userContent }],
+  });
+  var text = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; }).join("\n");
+  var clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+  try { return JSON.parse(clean); }
+  catch(e) { throw new Error("No se pudo leer la respuesta: " + clean.slice(0, 200)); }
+}
+
+// ── Componentes base ────────────────────────────────────────────────────────
+
+function ApiKeyBar() {
+  var [open, setOpen] = useState(false);
+  var [key, setKey] = useState(function() { return getApiKey(); });
+  var [guardado, setGuardado] = useState(false);
+
+  function guardar() {
+    try { localStorage.setItem("ds_api_key", key.trim()); } catch (e) {}
+    setGuardado(true); setOpen(false);
+    setTimeout(function() { setGuardado(false); }, 2000);
+  }
+  function borrar() {
+    try { localStorage.removeItem("ds_api_key"); } catch (e) {}
+    setKey(""); setOpen(false);
+  }
+
+  var tieneKey = !!getApiKey();
+
+  return (
+    <div className="mb-4">
+      <button onClick={function() { setOpen(!open); }}
+        className={"flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border " +
+          (tieneKey ? "bg-emerald-950 border-emerald-800 text-emerald-300" : "bg-amber-950 border-amber-800 text-amber-300")}>
+        <KeyIcon className="w-3.5 h-3.5" />
+        {tieneKey ? "API key configurada ✓" : "Configura tu API key de Anthropic"}
+      </button>
+      {open && (
+        <div className="mt-2 bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3 max-w-xl">
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Esta herramienta corre 100% en tu navegador — no hay servidor. Para usar las
+            funciones de IA (analizar guion, generar prompts, generar imágenes) necesitas tu
+            propia API key de Anthropic. Se guarda solo en este navegador (localStorage) y se
+            usa únicamente para llamar directo a la API de Anthropic desde tu equipo. Nunca se
+            envía a ningún servidor del creador de esta herramienta.
+          </p>
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer"
+            className="text-xs text-indigo-400 hover:text-indigo-300 underline block">
+            Obtener una API key en console.anthropic.com →
+          </a>
+          <input type="password" value={key} onChange={function(e) { setKey(e.target.value); }}
+            placeholder="sk-ant-..."
+            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm outline-none focus:border-amber-500 font-mono" />
+          <div className="flex gap-2">
+            <button onClick={guardar} disabled={!key.trim()}
+              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-semibold px-3 py-1.5 rounded-md text-xs">
+              Guardar
+            </button>
+            {tieneKey && (
+              <button onClick={borrar} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-md text-xs">
+                Borrar key
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {guardado && <p className="text-xs text-emerald-400 mt-1">Guardada ✓</p>}
+    </div>
+  );
+}
+
+function Stat(props) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
+      <div className="text-2xl font-bold text-amber-400">{props.value}</div>
+      <div className="text-xs text-zinc-500">{props.label}</div>
+    </div>
+  );
+}
+
+function Campo(props) {
+  return (
+    <div className="mb-1">
+      {props.label ? <label className="text-xs text-zinc-500 block mb-0.5">{props.label}</label> : null}
+      <textarea value={props.value || ""} onChange={function(e) { props.onChange(e.target.value); }}
+        className="w-full bg-zinc-950 border border-zinc-800 rounded p-2 text-sm outline-none focus:border-indigo-500 resize-none" rows={2} />
+    </div>
+  );
+}
+
+function CopyBtn(props) {
+  var text = props.text;
+  var label = props.label || "Copiar";
+  var [copiado, setCopiado] = useState(false);
+  function copiar() {
+    if (!text) return;
+    try {
+      navigator.clipboard.writeText(text).then(function() {
+        setCopiado(true); setTimeout(function() { setCopiado(false); }, 2000);
+      }).catch(fallback);
+    } catch(e) { fallback(); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch(e) {}
+      document.body.removeChild(ta);
+      setCopiado(true); setTimeout(function() { setCopiado(false); }, 2000);
+    }
+  }
+  return (
+    <button onClick={copiar} disabled={!text}
+      className="flex items-center gap-1 bg-zinc-800 hover:bg-emerald-700 disabled:opacity-30 px-2 py-0.5 rounded text-[11px] text-zinc-400 hover:text-white">
+      <Download className="w-3 h-3" />{copiado ? "✓ Copiado" : label}
+    </button>
+  );
+}
+
+function PromptBlock(props) {
+  var label = props.label;
+  var text = props.text || "";
+  var img = props.img;
+  var generando = props.generando;
+  var onGen = props.onGen;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <p className="text-zinc-500 text-xs">{label}</p>
+        <div className="flex items-center gap-1">
+          {onGen && (
+            <button onClick={onGen} disabled={generando || !text}
+              className="flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 px-2 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-100">
+              {generando ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+              {generando ? "..." : img ? "Regen." : "Generar img"}
+            </button>
+          )}
+          <CopyBtn text={text} />
+        </div>
+      </div>
+      {text
+        ? <p className="bg-zinc-950 border border-zinc-800 rounded p-2 text-zinc-300 text-xs leading-relaxed">{text}</p>
+        : <p className="bg-zinc-950 border border-zinc-800 rounded p-2 text-zinc-600 text-xs italic">Sin generar</p>}
+      {img && (
+        <a href={img} target="_blank" rel="noreferrer">
+          <img src={img} alt={label} className="rounded border border-zinc-800 max-h-48 w-auto mt-1" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+function PersonajeImagen(props) {
+  var personaje = props.personaje;
+  var onChange = props.onChange;
+  var [cargando, setCargando] = useState(false);
+
+  function cargarImagen(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setCargando(true);
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var mime = file.type || "image/jpeg";
+      var b64 = ev.target.result.split(",")[1];
+      onChange({ imagenBase64: b64, imagenMimeType: mime, imagenNombre: file.name });
+      setCargando(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function quitarImagen() {
+    onChange({ imagenBase64: null, imagenMimeType: null, imagenNombre: null });
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-zinc-500 font-medium">Imagen de referencia</p>
+      <div className="flex gap-3 items-start">
+        {personaje.imagenBase64 ? (
+          <div className="relative shrink-0">
+            <img src={"data:" + (personaje.imagenMimeType || "image/jpeg") + ";base64," + personaje.imagenBase64}
+              alt={personaje.nombre} className="w-20 h-20 object-cover rounded-lg border border-zinc-700" />
+            <button onClick={quitarImagen}
+              className="absolute -top-1.5 -right-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">×</button>
+          </div>
+        ) : (
+          <label className="w-20 h-20 flex flex-col items-center justify-center bg-zinc-800 hover:bg-zinc-700 border border-dashed border-zinc-600 rounded-lg cursor-pointer shrink-0">
+            {cargando ? <Loader2 className="w-5 h-5 animate-spin text-zinc-400" /> : <ImageIcon className="w-5 h-5 text-zinc-500" />}
+            <span className="text-[10px] text-zinc-500 mt-1">{cargando ? "Cargando..." : "Subir foto"}</span>
+            <input type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
+          </label>
+        )}
+        <div className="flex-1 space-y-2">
+          <div>
+            <label className="text-[11px] text-zinc-500 block mb-1">ID asset Magnific <span className="text-zinc-600">(prioridad sobre foto)</span></label>
+            <input value={personaje.magnificId || ""}
+              onChange={function(e) { onChange({ magnificId: e.target.value }); }}
+              placeholder="ej: 1294914"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs outline-none focus:border-amber-500 text-zinc-300" />
+          </div>
+          <span className={"text-[11px] px-2 py-0.5 rounded inline-block " + (personaje.magnificId ? "bg-amber-900 text-amber-300" : personaje.imagenBase64 ? "bg-emerald-900 text-emerald-300" : "bg-zinc-800 text-zinc-500")}>
+            {personaje.magnificId ? "✓ Asset Magnific — máx. consistencia" : personaje.imagenBase64 ? "✓ Foto — videos cortos" : "Sin referencia — solo texto"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonajeCard(props) {
+  var p = props.p;
+  var setPersonajes = props.setPersonajes;
+
+  function actualizar(cambios) {
+    setPersonajes(function(prev) {
+      return prev.map(function(x) { return x.id === p.id ? Object.assign({}, x, cambios) : x; });
+    });
+  }
+
+  var promptVisual = [
+    p.fisico && ("Físico: " + p.fisico),
+    p.vestuario && ("Vestuario: " + p.vestuario),
+    p.personalidad && ("Personalidad: " + p.personalidad),
+  ].filter(Boolean).join(". ");
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold shrink-0">
+          {(p.nombre || "?")[0]}
+        </div>
+        <input value={p.nombre || ""} onChange={function(e) { actualizar({ nombre: e.target.value }); }}
+          className="bg-transparent font-semibold outline-none flex-1" placeholder="Nombre del personaje" />
+      </div>
+
+      <PersonajeImagen personaje={p} onChange={actualizar} />
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs text-zinc-500 font-medium">Prompt del personaje</label>
+          <CopyBtn text={promptVisual} label="Copiar prompt" />
+        </div>
+        <Campo label="Físico" value={p.fisico} onChange={function(v) { actualizar({ fisico: v }); }} />
+        <Campo label="Vestuario" value={p.vestuario} onChange={function(v) { actualizar({ vestuario: v }); }} />
+        <Campo label="Personalidad" value={p.personalidad} onChange={function(v) { actualizar({ personalidad: v }); }} />
+        {promptVisual && (
+          <div className="mt-2 bg-zinc-950 border border-zinc-800 rounded p-2">
+            <p className="text-zinc-300 text-xs leading-relaxed">{promptVisual}</p>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="text-xs text-zinc-500 font-medium block mb-1">Voz (ElevenLabs)</label>
+        <Campo label="" value={p.voz} onChange={function(v) { actualizar({ voz: v }); }} />
+      </div>
+    </div>
+  );
+}
+
+function ShotCard(props) {
+  var shot = props.shot;
+  var num = props.num;
+  var onGen = props.onGen;
+  var genCual = props.genCual;
+  var onRegenerar = props.onRegenerar;
+  var regenerando = props.regenerando;
+  var [open, setOpen] = useState(false);
+  return (
+    <div className="p-3">
+      <div className="flex items-center gap-2">
+        <button onClick={function() { setOpen(!open); }} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+          <span className="text-xs bg-amber-500 text-zinc-950 font-bold w-6 h-6 flex items-center justify-center rounded shrink-0">{num}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate">{shot.descripcion}</p>
+            <p className="text-xs text-zinc-500">
+              {shot.encuadre} · {shot.duracion}s {shot.lipSync ? "· 🎤" : ""} ·{" "}
+              <span className={shot.tipo === "broll" ? "text-emerald-400" : "text-amber-400"}>
+                {shot.tipo === "broll" ? "B-roll" : "A-roll"}
+              </span>
+            </p>
+          </div>
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={onRegenerar} disabled={regenerando}
+            className="flex items-center gap-1 bg-zinc-800 hover:bg-indigo-600 disabled:opacity-40 px-2 py-1 rounded text-[11px] text-zinc-400 hover:text-white">
+            {regenerando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+            {regenerando ? "..." : "Re"}
+          </button>
+          <ChevronRight onClick={function() { setOpen(!open); }}
+            className={"w-4 h-4 text-zinc-600 cursor-pointer transition-transform " + (open ? "rotate-90" : "")} />
+        </div>
+      </div>
+      {open && (
+        <div className="mt-3 pl-9 space-y-3">
+          {shot.dialogo ? <p className="text-zinc-300 text-xs"><span className="text-zinc-500">Diálogo:</span> "{shot.dialogo}"</p> : null}
+          {shot.conceptoVisual ? <p className="text-zinc-400 italic text-xs">Concepto: {shot.conceptoVisual}</p> : null}
+          <PromptBlock label={"Prompt imagen inicial (" + MODELO_IMAGEN + ")"}
+            text={shot.promptImagen} img={shot.imgInicial}
+            generando={genCual === "inicial"} onGen={function() { onGen("inicial"); }} />
+          <PromptBlock label={"Prompt imagen final (" + MODELO_IMAGEN + ")"}
+            text={shot.promptImagenFinal} img={shot.imgFinal}
+            generando={genCual === "final"} onGen={function() { onGen("final"); }} />
+          <PromptBlock label={"Prompt video (" + MODELO_VIDEO + ")"} text={shot.promptVideo} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Empty(props) {
+  return (
+    <div className="text-center py-16 text-zinc-600">
+      <Clapperboard className="w-10 h-10 mx-auto mb-3 opacity-40" />
+      <p className="text-sm">{props.texto}</p>
+    </div>
+  );
+}
+
+// ── App principal ───────────────────────────────────────────────────────────
+
+function DirectorStudio() {
+  var [tab, setTab] = useState("guion");
+  var [titulo, setTitulo] = useState("Mi proyecto");
+  var [guion, setGuion] = useState("");
+  var [estilo, setEstilo] = useState(ESTILO_DEFAULT);
+  var [escenas, setEscenas] = useState([]);
+  var [personajes, setPersonajes] = useState([]);
+  var [loading, setLoading] = useState(null);
+  var [regenShot, setRegenShot] = useState(null);
+  var [progreso, setProgreso] = useState(null);
+  var [shotProgreso, setShotProgreso] = useState(null);
+  var [error, setError] = useState(null);
+  var [exportado, setExportado] = useState("");
+  var [tipoExport, setTipoExport] = useState(null);
+  var [copiado, setCopiado] = useState(false);
+  var [limpiando, setLimpiando] = useState(false);
+  var [genImg, setGenImg] = useState(null);
+  var [hidratado, setHidratado] = useState(false);
+  var [guardadoEstado, setGuardadoEstado] = useState("idle");
+  var [confirmarNuevo, setConfirmarNuevo] = useState(false);
+  var [audioNombre, setAudioNombre] = useState("");
+  var [audioDuracion, setAudioDuracion] = useState(0);
+  var [audioTranscripcion, setAudioTranscripcion] = useState("");
+  var [transcribiendo, setTranscribiendo] = useState(false);
+  var [segmentos, setSegmentos] = useState([]);
+  var [analizandoAudio, setAnalizandoAudio] = useState(false);
+
+  // ── Persistencia (localStorage del navegador — reemplaza window.storage) ──
+  useEffect(function() {
+    try {
+      var raw = localStorage.getItem("ds_proyecto");
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (p.titulo != null) setTitulo(p.titulo);
+        if (p.guion != null) setGuion(p.guion);
+        if (p.estilo != null) setEstilo(p.estilo);
+        if (Array.isArray(p.escenas)) setEscenas(p.escenas);
+        if (Array.isArray(p.personajes)) setPersonajes(p.personajes);
+        if (Array.isArray(p.segmentos)) setSegmentos(p.segmentos);
+        if (p.audioNombre != null) setAudioNombre(p.audioNombre);
+        if (p.audioDuracion != null) setAudioDuracion(p.audioDuracion);
+        if (p.audioTranscripcion != null) setAudioTranscripcion(p.audioTranscripcion);
+      }
+    } catch(e) {}
+    setHidratado(true);
+  }, []);
+
+  useEffect(function() {
+    if (!hidratado) return;
+    setGuardadoEstado("guardando");
+    var t = setTimeout(function() {
+      try {
+        localStorage.setItem("ds_proyecto", JSON.stringify({
+          titulo, guion, estilo, escenas, personajes, segmentos,
+          audioNombre, audioDuracion, audioTranscripcion
+        }));
+        setGuardadoEstado("guardado");
+      } catch(e) { setGuardadoEstado("error"); }
+    }, 600);
+    return function() { clearTimeout(t); };
+  }, [titulo, guion, estilo, escenas, personajes, segmentos, audioNombre, audioDuracion, audioTranscripcion, hidratado]);
+
+  function nuevoProyecto() {
+    if (!confirmarNuevo) {
+      setConfirmarNuevo(true);
+      setTimeout(function() { setConfirmarNuevo(false); }, 3000);
+      return;
+    }
+    setConfirmarNuevo(false);
+    try { localStorage.removeItem("ds_proyecto"); } catch(e) {}
+    setTitulo("Mi proyecto"); setGuion(""); setEstilo(ESTILO_DEFAULT);
+    setEscenas([]); setPersonajes([]); setSegmentos([]);
+    setAudioNombre(""); setAudioDuracion(0); setAudioTranscripcion("");
+    setExportado(""); setTipoExport(null);
+  }
+
+  // ── Audio ──────────────────────────────────────────────────────────────────
+  function cargarAudio(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setAudioNombre(file.name); setSegmentos([]); setAudioTranscripcion("");
+    var url = URL.createObjectURL(file);
+    var audioEl = new Audio(url);
+    audioEl.addEventListener("loadedmetadata", function() {
+      setAudioDuracion(Math.round(audioEl.duration * 10) / 10);
+      URL.revokeObjectURL(url);
+    });
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setAudioTranscripcion("__manual__"); return; }
+    setTranscribiendo(true);
+    var url2 = URL.createObjectURL(file);
+    var audioEl2 = new Audio(url2);
+    var recognition = new SR();
+    recognition.lang = "es-MX"; recognition.continuous = true; recognition.interimResults = false;
+    var transcript = "";
+    recognition.onresult = function(ev) {
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) transcript += ev.results[i][0].transcript + " ";
+      }
+      setAudioTranscripcion(transcript.trim());
+    };
+    recognition.onend = function() { setTranscribiendo(false); URL.revokeObjectURL(url2); };
+    recognition.onerror = function() { setTranscribiendo(false); setAudioTranscripcion("__manual__"); };
+    audioEl2.play(); recognition.start();
+    audioEl2.onended = function() { recognition.stop(); };
+  }
+
+  async function analizarAudio() {
+    var txt = (!audioTranscripcion || audioTranscripcion === "__manual__") ? guion.trim() : audioTranscripcion;
+    if (!txt) { setError("No hay transcripción. Pega el texto en la caja o en la pestaña Guion."); return; }
+    var dur = audioDuracion > 0 ? audioDuracion : Math.round(txt.split(/\s+/).length / 2.5);
+    setError(null); setAnalizandoAudio(true);
+    try {
+      var data = await anthropicFetch({
+        model: "claude-sonnet-4-20250514", max_tokens: 4000,
+        system: "Eres editor de video experto en YouTube. SOLO JSON válido, sin markdown.",
+        messages: [{ role: "user", content: "Narración de EXACTAMENTE " + dur + " segundos. Divide en shots (3-10s, suman exactamente " + dur + "s).\nB-roll: algo visual concreto, sin presentador.\nA-roll: preguntas directas o afirmaciones clave.\n\nJSON:\n{\"duracionTotal\":" + dur + ",\"segmentos\":[{\"texto\":\"fragmento\",\"tipo\":\"aroll\",\"conceptoVisual\":\"\",\"duracion\":5.0,\"inicio\":0.0,\"fin\":5.0}]}\n\nNarración:\n" + txt }]
+      });
+      var text = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; }).join("\n");
+      var clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      var resultado = JSON.parse(clean);
+      var segs = resultado.segmentos || [];
+      var suma = segs.reduce(function(a, s) { return a + (s.duracion || 0); }, 0);
+      var factor = suma > 0 ? dur / suma : 1;
+      var acum = 0;
+      var norm = segs.map(function(s, i) {
+        var d = i === segs.length - 1 ? Math.round((dur - acum) * 10) / 10 : Math.round((s.duracion || 4) * factor * 10) / 10;
+        var seg = Object.assign({}, s, { duracion: d, inicio: Math.round(acum * 10) / 10, fin: Math.round((acum + d) * 10) / 10 });
+        acum += d; return seg;
+      });
+      setSegmentos(norm);
+    } catch(e) { setError("Error al analizar: " + e.message); }
+    finally { setAnalizandoAudio(false); }
+  }
+
+  function hacerShots(bloque, escId) {
+    return bloque.map(function(s, si) {
+      return {
+        id: escId + "_sh" + si, tipo: s.tipo || "aroll", conceptoVisual: s.conceptoVisual || "",
+        descripcion: (s.texto || "").slice(0, 80), encuadre: s.tipo === "broll" ? "Plano general" : "Primer plano",
+        duracion: Math.round((s.duracion || 4) * 10) / 10, inicio: s.inicio || 0, fin: s.fin || 0,
+        personaje: s.tipo === "aroll" ? ((personajes[0] && personajes[0].nombre) || "") : "",
+        dialogo: s.texto || "", lipSync: s.tipo === "aroll",
+        promptImagen: "", promptImagenFinal: "", promptVideo: "", transicion: "Corte directo", refMagnific: null,
+      };
+    });
+  }
+
+  function aplicarSegmentosAEscenas() {
+    if (!segmentos.length) return;
+    if (!escenas.length) {
+      var POR = 5; var nuevas = [];
+      for (var i = 0; i < segmentos.length; i += POR) {
+        var bloque = segmentos.slice(i, i + POR);
+        var escId = "esc" + nuevas.length + "_" + Date.now();
+        nuevas.push({ id: escId, titulo: "Escena " + (nuevas.length + 1), resumen: (bloque[0] && bloque[0].texto && bloque[0].texto.slice(0, 80)) || "", personajes: [], shots: hacerShots(bloque, escId) });
+      }
+      setEscenas(nuevas);
+    } else {
+      var por = Math.ceil(segmentos.length / escenas.length);
+      setEscenas(escenas.map(function(esc, ei) {
+        var segs = segmentos.slice(ei * por, (ei + 1) * por);
+        return segs.length ? Object.assign({}, esc, { shots: hacerShots(segs, esc.id) }) : esc;
+      }));
+    }
+    setTab("shots");
+  }
+
+  var totalShots = escenas.reduce(function(a, e) { return a + (e.shots ? e.shots.length : 0); }, 0);
+  var duracionTotal = escenas.reduce(function(a, e) { return a + (e.shots ? e.shots.reduce(function(s, sh) { return s + (Number(sh.duracion) || 0); }, 0) : 0); }, 0);
+
+  // ── Guion ──────────────────────────────────────────────────────────────────
+  async function analizarGuion() {
+    if (!guion.trim()) { setError("Pega un guion primero."); return; }
+    setError(null); setLoading("analizar");
+    try {
+      var data = await callClaude("Eres director de cine. SOLO JSON válido.",
+        "Divide en escenas. JSON: {\"escenas\":[{\"titulo\":\"...\",\"resumen\":\"1-2 frases\",\"personajes\":[\"nombre\"]}]}\n\nGuion:\n" + guion);
+      var nuevas = (data.escenas || []).map(function(e, i) {
+        return { id: "esc" + i + "_" + Date.now(), titulo: e.titulo || "Escena " + (i + 1), resumen: e.resumen || "", personajes: e.personajes || [], shots: null };
+      });
+      setEscenas(nuevas); setLoading("personajes");
+      var dataN = await callClaude("Eres director de casting. SOLO JSON válido.",
+        "Lista personajes. JSON: {\"nombres\":[\"...\"]}\n\nGuion:\n" + guion);
+      var nombres = (dataN.nombres || []).filter(Boolean);
+      var fichas = [];
+      for (var i = 0; i < nombres.length; i++) {
+        setProgreso({ actual: i + 1, total: nombres.length });
+        var dataP = await callClaude("Eres diseñador de producción. SOLO JSON válido.",
+          "Ficha de \"" + nombres[i] + "\". JSON:\n{\"nombre\":\"" + nombres[i] + "\",\"fisico\":\"...\",\"vestuario\":\"...\",\"voz\":\"...\",\"personalidad\":\"...\"}\n\nGuion:\n" + guion);
+        fichas.push(Object.assign({ id: "per" + i, imagenBase64: null, magnificId: "" }, dataP));
+        setPersonajes(fichas.slice());
+      }
+      setTab("personajes");
+    } catch(e) { setError(e.message); }
+    finally { setLoading(null); setProgreso(null); }
+  }
+
+  // ── Prompts ────────────────────────────────────────────────────────────────
+  function obtenerReferenciaPersonaje(nombrePersonaje) {
+    var per = personajes.find(function(p) { return p.nombre === nombrePersonaje; });
+    if (!per) return null;
+    if (per.magnificId && per.magnificId.trim()) return { type: "character", identifier: per.magnificId.trim() };
+    if (per.imagenBase64) return { type: "image_base64", data: per.imagenBase64, mimeType: per.imagenMimeType || "image/jpeg" };
+    return null;
+  }
+
+  async function subirImagenMagnific(base64, mimeType) {
+    try {
+      var data = await anthropicFetch({
+        model: "claude-sonnet-4-20250514", max_tokens: 500,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } },
+          { type: "text", text: "Sube esta imagen a Magnific. Responde SOLO con el identifier resultante." }
+        ]}],
+        mcp_servers: [{ type: "url", url: "https://mcp.magnific.com", name: "magnific" }],
+      });
+      var text = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; }).join("\n").trim();
+      var matchUrl = text.match(/https?:\/\/[^\s"']+/);
+      var matchId = text.match(/[a-zA-Z0-9_-]{8,}/);
+      return matchUrl ? matchUrl[0] : (matchId ? matchId[0] : null);
+    } catch(e) { return null; }
+  }
+
+  async function generarPromptsShot(sh) {
+    var biblia = personajes.map(function(p) { return "- " + p.nombre + ": " + p.fisico + ". Vestuario: " + p.vestuario + "."; }).join("\n");
+    var esBroll = sh.tipo === "broll";
+    var ref = esBroll ? null : obtenerReferenciaPersonaje(sh.personaje);
+    var refMagnific = null;
+    if (ref && ref.type === "character") {
+      refMagnific = { type: "character", identifier: ref.identifier };
+    } else if (ref && ref.type === "image_base64") {
+      var uploadedId = await subirImagenMagnific(ref.data, ref.mimeType);
+      if (uploadedId) refMagnific = { type: "image", identifier: uploadedId };
+    }
+    var notaRef = refMagnific ? " (se usará imagen de referencia del personaje)" : "";
+    var r1 = await callClaude("Prompts en inglés para IA generativa. SOLO JSON.",
+      esBroll
+        ? "B-roll. Concepto: \"" + (sh.conceptoVisual || sh.descripcion) + "\". Sin presentador. Estilo: " + estilo + "\nJSON: {\"promptImagen\":\"...\"}"
+        : "A-roll. Personaje: " + (biblia || sh.personaje) + ". Diálogo: \"" + sh.dialogo + "\". Encuadre: " + sh.encuadre + ". Estilo: " + estilo + notaRef + "\nJSON: {\"promptImagen\":\"...\"}");
+    var r2 = await callClaude("Prompts en inglés para IA generativa. SOLO JSON.",
+      esBroll
+        ? "Frame final B-roll. Base: \"" + (r1.promptImagen || "") + "\". Ligero cambio. Estilo: " + estilo + "\nJSON: {\"promptImagenFinal\":\"...\"}"
+        : "Frame final A-roll. Base: \"" + (r1.promptImagen || "") + "\". Misma persona, cambia expresión." + notaRef + "\nJSON: {\"promptImagenFinal\":\"...\"}");
+    var r3 = await callClaude("Prompts de movimiento para Kling. SOLO JSON.",
+      "Prompt video Kling. Shot: " + sh.descripcion + ". Tipo: " + (esBroll ? "B-roll" : "A-roll") + ". Duración: " + sh.duracion + "s.\nJSON: {\"promptVideo\":\"...\",\"transicion\":\"corte directo u otro\"}");
+    return { promptImagen: r1.promptImagen || "", promptImagenFinal: r2.promptImagenFinal || "", promptVideo: r3.promptVideo || "", transicion: r3.transicion || "Corte directo", refMagnific: refMagnific || null };
+  }
+
+  async function generarShots(escena) {
+    setError(null); setLoading(escena.id);
+    try {
+      var base = (escena.shots && escena.shots.length) ? escena.shots.map(function(s) { return Object.assign({}, s); }) : null;
+      if (!base) {
+        var plan = await callClaude("Eres storyboard artist. SOLO JSON.",
+          "Divide en shots (máx 6). A-roll (presentador) y B-roll (entorno, sin presentador).\nCampos: tipo, descripcion, encuadre, duracion, personaje, dialogo, lipSync, conceptoVisual.\nEscena: " + escena.titulo + "\nResumen: " + escena.resumen + "\nJSON: {\"shots\":[...]}", 4000);
+        base = (plan.shots || []).map(function(s, i) {
+          var tipo = (s.tipo || "aroll").toLowerCase().replace(/[^a-z]/g, "") === "broll" ? "broll" : "aroll";
+          return Object.assign({ id: escena.id + "_sh" + i, tipo: "aroll", conceptoVisual: "" }, s, { tipo: tipo, promptImagen: "", promptImagenFinal: "", promptVideo: "", transicion: "", refMagnific: null });
+        });
+      }
+      setEscenas(function(prev) { return prev.map(function(e) { return e.id === escena.id ? Object.assign({}, e, { shots: base }) : e; }); });
+      for (var i = 0; i < base.length; i++) {
+        if (base[i].promptImagen && base[i].promptVideo) continue;
+        setShotProgreso({ escenaId: escena.id, actual: i + 1, total: base.length });
+        try {
+          var prompts = await generarPromptsShot(base[i]);
+          base[i] = Object.assign({}, base[i], prompts);
+          var snap = base.slice();
+          setEscenas(function(prev) { return prev.map(function(e) { return e.id === escena.id ? Object.assign({}, e, { shots: snap }) : e; }); });
+        } catch(err) { console.warn("Error shot", i, err.message); }
+      }
+      setShotProgreso(null);
+    } catch(e) { setError(e.message); }
+    finally { setLoading(null); }
+  }
+
+  async function regenerarShots(escena) {
+    var limpia = Object.assign({}, escena, {
+      shots: (escena.shots || []).map(function(s) { return Object.assign({}, s, { promptImagen: "", promptImagenFinal: "", promptVideo: "", transicion: "", refMagnific: null }); })
+    });
+    setEscenas(function(prev) { return prev.map(function(e) { return e.id === escena.id ? limpia : e; }); });
+    await generarShots(limpia);
+  }
+
+  async function regenerarShot(escena, shot) {
+    setError(null); setRegenShot(shot.id);
+    try {
+      var prompts = await generarPromptsShot(shot);
+      setEscenas(function(prev) {
+        return prev.map(function(e) {
+          return e.id === escena.id ? Object.assign({}, e, { shots: e.shots.map(function(s) { return s.id === shot.id ? Object.assign({}, s, prompts) : s; }) }) : e;
+        });
+      });
+    } catch(e) { setError(e.message); }
+    finally { setRegenShot(null); }
+  }
+
+  async function generarTodos() {
+    setError(null);
+    var pendientes = escenas.filter(function(e) { return !e.shots || e.shots.some(function(s) { return !s.promptImagen; }); });
+    for (var i = 0; i < pendientes.length; i++) {
+      setProgreso({ actual: i + 1, total: pendientes.length });
+      await generarShots(pendientes[i]);
+    }
+    setProgreso(null);
+  }
+
+  async function generarImagen(escena, shot, cual) {
+    setError(null); setGenImg({ shotId: shot.id, cual });
+    try {
+      var prompt = cual === "final" ? shot.promptImagenFinal : shot.promptImagen;
+      if (!prompt) { setError("Sin prompt de imagen."); return; }
+      var refInstruccion = "";
+      if (shot.refMagnific) {
+        refInstruccion = "\n\nREFERENCIA: usa este objeto en el campo references: " + JSON.stringify(shot.refMagnific);
+      }
+      var data = await anthropicFetch({
+        model: "claude-sonnet-4-20250514", max_tokens: 1000,
+        messages: [{ role: "user", content: "Genera imagen con Magnific, modelo imagen-nano-banana-2-flash, aspecto 16:9. Prompt:\n\n" + prompt + refInstruccion + "\n\nResponde SOLO con la URL directa del resultado." }],
+        mcp_servers: [{ type: "url", url: "https://mcp.magnific.com", name: "magnific" }],
+      });
+      var urls = [];
+      var re = /https?:\/\/[^\s"')\]]+/g;
+      (data.content || []).forEach(function(b) {
+        if (b.type === "text" && b.text) { var m = b.text.match(re); if (m) urls = urls.concat(m); }
+        if (b.type === "mcp_tool_result") (b.content || []).forEach(function(c) { if (c.type === "text") { var m = c.text.match(re); if (m) urls = urls.concat(m); } });
+      });
+      var url = urls.find(function(u) { return /\.(png|jpg|jpeg|webp)(\?|$)/i.test(u); }) ||
+                urls.find(function(u) { return /cloudfront|cdn|magnific|amazonaws/i.test(u); }) || urls[0];
+      if (!url) throw new Error("No se encontró URL.");
+      var campo = cual === "final" ? "imgFinal" : "imgInicial";
+      setEscenas(function(prev) {
+        return prev.map(function(e) {
+          return e.id === escena.id ? Object.assign({}, e, { shots: e.shots.map(function(s) { return s.id === shot.id ? Object.assign({}, s, { [campo]: url }) : s; }) }) : e;
+        });
+      });
+    } catch(e) { setError(e.message); }
+    finally { setGenImg(null); }
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────────
+  function construirCSV() {
+    var h = ["escena","shot_id","tipo","encuadre","duracion_seg","inicio_audio","fin_audio","personaje","dialogo","lip_sync","modelo_imagen","prompt_imagen_inicial","prompt_imagen_final","modelo_video","prompt_video","transicion"];
+    var filas = [h.join(";")];
+    escenas.forEach(function(e) {
+      (e.shots || []).forEach(function(s) {
+        filas.push([e.titulo,s.id,s.tipo,s.encuadre,s.duracion,s.inicio||"",s.fin||"",s.personaje,s.dialogo,s.lipSync?"SI":"NO",MODELO_IMAGEN,s.promptImagen,s.promptImagenFinal,MODELO_VIDEO,s.promptVideo,s.transicion]
+          .map(function(v) { return "\"" + String(v == null ? "" : v).replace(/"/g, "\"\"") + "\""; }).join(";"));
+      });
+    });
+    return filas.join("\n");
+  }
+
+  function mostrarExport(tipo) {
+    setTipoExport(tipo);
+    setExportado(tipo === "csv" ? construirCSV() : tipo === "json" ? JSON.stringify({ titulo, estilo, modeloImagen: MODELO_IMAGEN, modeloVideo: MODELO_VIDEO, personajes, escenas }, null, 2) : guion.trim());
+    setCopiado(false);
+  }
+
+  async function limpiarNarracion() {
+    setError(null); setLimpiando(true);
+    try {
+      var chunks = guion.split(/\n\s*\n/).filter(Boolean);
+      var limpios = [];
+      for (var i = 0; i < chunks.length; i++) {
+        setProgreso({ actual: i + 1, total: chunks.length });
+        var data = await anthropicFetch({
+          model: "claude-sonnet-4-20250514", max_tokens: 1000,
+          system: "Limpias guiones para TTS. Solo texto a narrar, sin acotaciones ni encabezados.",
+          messages: [{ role: "user", content: "Extrae la narración:\n\n" + chunks[i] }]
+        });
+        var txt = (data.content || []).filter(function(b) { return b.type === "text"; }).map(function(b) { return b.text; }).join("\n").trim();
+        limpios.push(txt); setExportado(limpios.join("\n\n"));
+      }
+      setProgreso(null);
+    } catch(e) { setError(e.message); }
+    finally { setLimpiando(false); }
+  }
+
+  async function copiarExport() {
+    try { await navigator.clipboard.writeText(exportado); setCopiado(true); }
+    catch(e) { var ta = document.getElementById("export-area"); if (ta) { ta.select(); try { document.execCommand("copy"); setCopiado(true); } catch(e2) {} } }
+    setTimeout(function() { setCopiado(false); }, 2000);
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <div className="max-w-5xl mx-auto p-4 sm:p-6">
+
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-amber-500 p-2 rounded-lg"><Film className="w-6 h-6 text-zinc-950" /></div>
+          <div className="flex-1 min-w-0">
+            <input value={titulo} onChange={function(e) { setTitulo(e.target.value); }}
+              className="bg-transparent text-xl font-bold outline-none border-b border-transparent focus:border-amber-500 w-full" />
+            <p className="text-xs text-zinc-500">Director Studio · {MODELO_IMAGEN} + {MODELO_VIDEO}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs text-zinc-500">{guardadoEstado === "guardando" ? "Guardando…" : guardadoEstado === "guardado" ? "Guardado ✓" : guardadoEstado === "error" ? "Error" : ""}</span>
+            <button onClick={nuevoProyecto} className="text-xs bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1.5 rounded-md">{confirmarNuevo ? "¿Confirmar?" : "Nuevo"}</button>
+          </div>
+        </div>
+
+        <ApiKeyBar />
+
+        {escenas.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <Stat label="Escenas" value={escenas.length} />
+            <Stat label="Shots" value={totalShots} />
+            <Stat label="Duración" value={(audioDuracion > 0 ? audioDuracion : Math.round(duracionTotal)) + "s"} />
+          </div>
+        )}
+
+        <div className="flex gap-1 mb-6 bg-zinc-900 p-1 rounded-lg overflow-x-auto">
+          {TABS.map(function(t) {
+            var Icon2 = t.icon;
+            return (
+              <button key={t.id} onClick={function() { setTab(t.id); }}
+                className={"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors " + (tab === t.id ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-zinc-100")}>
+                <Icon2 className="w-4 h-4" />{t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {error && (
+          <div className="mb-4 flex items-start gap-2 bg-red-950 border border-red-800 text-red-200 p-3 rounded-lg text-sm">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /><span>{error}</span>
+          </div>
+        )}
+
+        {tab === "guion" && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">Guion completo</label>
+              <textarea value={guion} onChange={function(e) { setGuion(e.target.value); }} placeholder="Pega aquí tu guion..."
+                className="w-full h-64 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm outline-none focus:border-amber-500 resize-none" />
+            </div>
+            <div>
+              <label className="text-sm text-zinc-400 mb-1 block">Estilo visual base</label>
+              <textarea value={estilo} onChange={function(e) { setEstilo(e.target.value); }}
+                className="w-full h-24 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs outline-none focus:border-amber-500 resize-none" />
+            </div>
+            <button onClick={analizarGuion} disabled={loading === "analizar" || loading === "personajes"}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 font-semibold px-4 py-2.5 rounded-lg">
+              {(loading === "analizar" || loading === "personajes")
+                ? <><Loader2 className="w-4 h-4 animate-spin" />{loading === "analizar" ? "Analizando..." : "Personajes..."}</>
+                : <><Wand2 className="w-4 h-4" />Analizar guion</>}
+            </button>
+          </div>
+        )}
+
+        {tab === "audio" && (
+          <div className="space-y-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3">
+              <label className="text-sm text-zinc-400 block">Archivo de audio</label>
+              <label className="flex items-center gap-3 cursor-pointer bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-lg w-fit">
+                <Play className="w-4 h-4 text-amber-400" />
+                <span className="text-sm">{audioNombre || "Seleccionar archivo…"}</span>
+                <input type="file" accept=".mp3,.wav,.ogg,.m4a" onChange={cargarAudio} className="hidden" />
+              </label>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-zinc-500">⏱ Duración (seg):</p>
+                <input type="number" value={audioDuracion || ""} onChange={function(e) { setAudioDuracion(Number(e.target.value)); }}
+                  placeholder="ej: 61" className="w-20 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-amber-400 font-semibold outline-none focus:border-amber-500" />
+              </div>
+              {transcribiendo && <p className="text-xs text-zinc-400 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" />Transcribiendo…</p>}
+              {audioTranscripcion && audioTranscripcion !== "__manual__" && (
+                <div>
+                  <p className="text-xs text-emerald-400 mb-1">Transcripción lista ✓</p>
+                  <textarea value={audioTranscripcion} onChange={function(e) { setAudioTranscripcion(e.target.value); }}
+                    className="w-full h-28 bg-zinc-950 border border-zinc-800 rounded p-2 text-xs outline-none focus:border-amber-500 resize-none" />
+                </div>
+              )}
+              {(audioTranscripcion === "__manual__" || !audioNombre) && (
+                <div>
+                  <p className="text-xs text-zinc-400 mb-1">{audioTranscripcion === "__manual__" ? "Transcripción automática no disponible. Pega el texto:" : "O pega la transcripción directamente:"}</p>
+                  <textarea value={audioTranscripcion === "__manual__" ? "" : (audioTranscripcion || "")}
+                    onChange={function(e) { setAudioTranscripcion(e.target.value); }}
+                    placeholder="Pega aquí la transcripción…"
+                    className="w-full h-28 bg-zinc-950 border border-zinc-800 rounded p-2 text-xs outline-none focus:border-amber-500 resize-none" />
+                </div>
+              )}
+            </div>
+            <button onClick={analizarAudio} disabled={analizandoAudio || transcribiendo}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 font-semibold px-4 py-2.5 rounded-lg">
+              {analizandoAudio ? <><Loader2 className="w-4 h-4 animate-spin" />Analizando…</> : <><Wand2 className="w-4 h-4" />Proponer shots con duración real</>}
+            </button>
+            {segmentos.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">{segmentos.length} shots · {segmentos.reduce(function(a, s) { return a + (s.duracion || 0); }, 0).toFixed(1)}s total</p>
+                    <p className="text-xs text-zinc-500">Revisa y aplica a las escenas.</p>
+                  </div>
+                  <button onClick={aplicarSegmentosAEscenas} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                    <Clapperboard className="w-4 h-4" />Aplicar a escenas
+                  </button>
+                </div>
+                {segmentos.map(function(s, i) {
+                  return (
+                    <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={"text-xs font-semibold px-2 py-0.5 rounded " + (s.tipo === "broll" ? "bg-emerald-900 text-emerald-300" : "bg-amber-900 text-amber-300")}>
+                          {s.tipo === "broll" ? "B-roll" : "A-roll"}
+                        </span>
+                        <span className="text-xs text-zinc-500">{(s.inicio || 0).toFixed(1)}s → {(s.fin || 0).toFixed(1)}s · <span className="text-amber-400">{(s.duracion || 0).toFixed(1)}s</span></span>
+                        {s.conceptoVisual && <span className="text-xs text-zinc-400 italic">· {s.conceptoVisual}</span>}
+                      </div>
+                      <p className="text-zinc-300 text-xs leading-relaxed">{s.texto}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "personajes" && (
+          <div className="space-y-3">
+            <button onClick={function() {
+              setPersonajes(function(prev) {
+                return prev.concat([{ id: "per" + Date.now(), nombre: "Personaje nuevo", fisico: "", vestuario: "", voz: "", personalidad: "", imagenBase64: null, imagenMimeType: null, magnificId: "" }]);
+              });
+            }} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm">
+              <Users className="w-4 h-4" /> Agregar personaje
+            </button>
+            {personajes.length === 0
+              ? <Empty texto="Analiza un guion o agrega un personaje manualmente." />
+              : personajes.map(function(p) { return <PersonajeCard key={p.id} p={p} setPersonajes={setPersonajes} />; })}
+          </div>
+        )}
+
+        {tab === "shots" && (
+          <div className="space-y-4">
+            {escenas.length === 0 ? <Empty texto="Analiza un guion o sube audio para ver las escenas." /> : (
+              <>
+                <button onClick={generarTodos} disabled={!!loading}
+                  className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                  {progreso ? <><Loader2 className="w-4 h-4 animate-spin" />Generando {progreso.actual}/{progreso.total}…</> : <><Clapperboard className="w-4 h-4" />Generar prompts de todas las escenas</>}
+                </button>
+                {escenas.map(function(e, idx) {
+                  var tienePrompts = e.shots && e.shots.some(function(s) { return !!s.promptImagen; });
+                  return (
+                    <div key={e.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                      <div className="p-4 flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded text-zinc-400">Escena {idx + 1}</span>
+                            <h3 className="font-semibold">{e.titulo}</h3>
+                          </div>
+                          <p className="text-sm text-zinc-400 mt-1">{e.resumen}</p>
+                        </div>
+                        <button onClick={function() { tienePrompts ? regenerarShots(e) : generarShots(e); }} disabled={!!loading}
+                          className="shrink-0 flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-xs px-3 py-1.5 rounded-md">
+                          {loading === e.id
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{shotProgreso && shotProgreso.escenaId === e.id ? shotProgreso.actual + "/" + shotProgreso.total : "…"}</>
+                            : <><Play className="w-3.5 h-3.5" />{tienePrompts ? "Regenerar escena" : "Generar prompts"}</>}
+                        </button>
+                      </div>
+                      {e.shots && (
+                        <div className="border-t border-zinc-800 divide-y divide-zinc-800">
+                          {e.shots.map(function(s, si) {
+                            return (
+                              <ShotCard key={s.id} shot={s} num={si + 1}
+                                onGen={function(cual) { generarImagen(e, s, cual); }}
+                                genCual={genImg && genImg.shotId === s.id ? genImg.cual : null}
+                                onRegenerar={function() { regenerarShot(e, s); }}
+                                regenerando={regenShot === s.id} />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "edicion" && (
+          <div className="space-y-2">
+            {totalShots === 0 ? <Empty texto="Genera shots para ver el plan de edición." /> : (
+              <>
+                <p className="text-sm text-zinc-400 mb-3">Timeline · {audioDuracion > 0 ? audioDuracion : Math.round(duracionTotal)}s total</p>
+                {escenas.flatMap(function(e) { return (e.shots || []).map(function(s) { return Object.assign({}, s, { escena: e.titulo }); }); }).map(function(s, i) {
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm">
+                      <span className="text-xs text-zinc-500 w-8">{String(i + 1).padStart(2, "0")}</span>
+                      <div className={"w-1 self-stretch rounded " + (s.tipo === "broll" ? "bg-emerald-500" : "bg-amber-500")} />
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate">{s.descripcion}</p>
+                        <p className="text-xs text-zinc-500">{s.encuadre} · {s.duracion}s · <span className={s.tipo === "broll" ? "text-emerald-400" : "text-amber-400"}>{s.tipo === "broll" ? "B-roll" : "A-roll"}</span></p>
+                      </div>
+                      <span className="text-xs text-zinc-600 shrink-0">{s.transicion}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "export" && (
+          <div className="space-y-4">
+            {totalShots === 0 ? <Empty texto="Genera shots antes de exportar." /> : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={function() { mostrarExport("csv"); }} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold px-4 py-2 rounded-lg text-sm">
+                    <FileText className="w-4 h-4" />CSV / Excel
+                  </button>
+                  <button onClick={function() { mostrarExport("voz"); }} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                    <FileText className="w-4 h-4" />Guion ElevenLabs
+                  </button>
+                  <button onClick={function() { mostrarExport("json"); }} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm">
+                    <FileText className="w-4 h-4" />JSON
+                  </button>
+                </div>
+                {exportado && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm text-zinc-400">Copia el contenido.</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {tipoExport === "voz" && (
+                          <button onClick={limpiarNarracion} disabled={limpiando}
+                            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 px-3 py-1.5 rounded-md text-sm">
+                            {limpiando ? <><Loader2 className="w-4 h-4 animate-spin" />{progreso ? progreso.actual + "/" + progreso.total : "…"}</> : <><Wand2 className="w-4 h-4" />Limpiar con IA</>}
+                          </button>
+                        )}
+                        <button onClick={copiarExport} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-3 py-1.5 rounded-md text-sm">
+                          <Download className="w-4 h-4" />{copiado ? "¡Copiado!" : "Copiar"}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea id="export-area" readOnly value={exportado} onFocus={function(e) { e.target.select(); }}
+                      className="w-full h-72 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono outline-none resize-none" />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<DirectorStudio />);
+</script>
+<script>
+  // Transforma y ejecuta el bloque JSX de arriba a mano, forzando el runtime
+  // "classic" de Babel (React.createElement) — el runtime "automatic" por
+  // defecto inyecta `import ... from "react/jsx-runtime"`, que no existe sin
+  // un empaquetador. Con "classic" todo corre como scripts sueltos, sin build.
+  (function() {
+    var src = document.getElementById("app-source").textContent;
+    try {
+      var code = Babel.transform(src, {
+        presets: [["react", { runtime: "classic" }]],
+      }).code;
+      var script = document.createElement("script");
+      script.text = code;
+      document.body.appendChild(script);
+    } catch (e) {
+      document.getElementById("root").innerHTML =
+        '<div style="color:#f87171;padding:2rem;font-family:monospace;white-space:pre-wrap">Error al iniciar la app:\n' +
+        (e && e.message ? e.message : String(e)) + '</div>';
+      console.error(e);
+    }
+  })();
+</script>
+</body>
+</html>
