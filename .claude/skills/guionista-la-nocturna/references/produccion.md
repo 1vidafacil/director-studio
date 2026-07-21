@@ -1,0 +1,118 @@
+# Pipeline de producción — La Nocturna
+
+Sigue esto solo cuando el usuario pida generar el audio del episodio, no para escribir el guion. Todo lo de aquí ya se probó y funcionó — o falló y se corrigió — de principio a fin en el Piloto y en "Amor Prohibido". No lo reinventes, síguelo.
+
+## 1. Voces — ElevenLabs vía Composio
+
+Usa el conector `elevenlabs` de Composio. Herramientas clave: `ELEVENLABS_TEXT_TO_SPEECH` para generar, `ELEVENLABS_GET_VOICES` para la librería del usuario, `ELEVENLABS_GET_SHARED_VOICES` para buscar en la librería pública cuando necesites un personaje nuevo (filtra por `language:es`, `gender`, `age`, `accent`, `descriptives`).
+
+**Modelo: `eleven_v3`** — soporta audio tags entre corchetes que se interpretan como dirección de actuación. Escribe los tags en **inglés** aunque el diálogo esté en español.
+
+**Elenco establecido (reutilízalo en todo episodio nuevo para continuidad de voz):**
+
+| Personaje | voice_id | Notas |
+|---|---|---|
+| Selene (conductora — LA voz del canal) | `eEuGa73RSVHBT8aAlQuC` (SEUN) | Elegida por el usuario, voz propia ya en su librería. Etiquetada como voz en inglés pero funciona bien en español con eleven_v3 — mantener acento tal cual, es parte del carácter distintivo de Selene. |
+| Elena (protagonista Ep. 2) | `hHjbwzYZW17oh0p05AKv` (Gabriela) | Mexicana, madura, cálida. |
+| Rodrigo (protagonista Ep. 2) | `pqKhcs5nbXnVICHGV1oI` (Diego) | Mexicano, joven, susurrante — voz de fábrica muy baja de volumen, ver sección 3 antes de dar por buena una toma suya. |
+| Doña Carmen | `D3ws14YxTqcjPaXEOehR` (Azu) | Mexicana, mayor, con carácter. |
+| "M." / voces femeninas adultas menores | `2rigMbVWLdqtBSCahJFX` (Tatiana) o `GU72V6Yk5oxNHCpv7yxQ` (Kate) | Ambas ya en librería. |
+| Brenda / voces femeninas de apoyo | `WJvDlvlNQAsEW1JX0xFc` (Barbara Mexicana) | En librería. |
+| Voces masculinas de apoyo | `xf3Xv0R9rgFTExG0MVNo` (Jaime) | En librería, gentil, joven. |
+| Ignacio Valladares (protagonista Ep. 3) | `3mmJ2Z5SLZ9OkeZZcv5p` (Oscar) | Mexicana/latinoamericana, grave, ritmo ágil — aprobada por el usuario tras descartar una primera opción (Miguel) por sonar demasiado lenta y no lo bastante grave. Usar tags que refuercen ritmo (`[brisk pace]`, `[deep, decisive]`) además de calidez. |
+| Renata Casares (protagonista Ep. 3) | `cAvMBIZ0VNTU8XdsUpEq` (Susana Elizabeth) | Mexicana joven, cálida — rango de firme/digna a asustada/sin aliento. |
+| Paulina Valladares (Ep. 3) | `5ZijjpWKqGUWL5GFOIxE` (Julieth Obando) | Latinoamericana, emotiva — para la confrontación de la cena necesita rango real de dolor bajo el enojo, no solo dureza. |
+| Andrés Valladares (Ep. 3) | `IzAIetrCi44224V7JtIZ` (James) | Mexicana, formal — voz más fría y calculadora que la de Paulina. |
+| Bruno Reyes (Ep. 3) | `DtlhuBB3j0HuxJsOkFnk` (Omar Cortazar) | Latinoamericano, cálido/suave — debe poder sonar encantador y luego desesperado, nunca amenazante. |
+| Yadira Coronado (protagonista Ep. 4) | `6sefJctHkzCgLShKcnrI` (Esperanza — Serene and Assured) | Colombiana, confident, cadencia suave y sin prisa — psicóloga que analiza a todos y a sí misma nunca. Aprobada tras una sola audición. |
+| Simón Bautista (protagonista Ep. 4) | `bWsVkabKfcL4w2zYlWa9` (Ramón — Mexican Northern, Warm & Natural) | Mexicano norteño, cálido — aprobada por el usuario tras descartar una primera opción ("Emilio", `DV9FrN0pQkPWIoxW5dvT`) por sonar ambiguamente femenina pese a estar catalogada como voz masculina en el catálogo; una segunda alternativa ("Alejandro Garcia", `9gm2jXcKEKzgaypKoOlk`) tampoco se usó. **Lección: no basta con el campo `gender` del catálogo para descartar ambigüedad de género — audicionar siempre antes de comprometer.** |
+| Geraldine Núñez (protagonista Ep. 4) | `z1ngDYs2H24Xsd8ts3az` (Adri — Husky, Natural and Credible) | Mexicana, registro medio-grave pero plenamente femenina — elegida a propósito por ese timbre, coherente con su historia de transición. Aprobada tras una sola audición. |
+
+**Voz infantil:** no existe voz infantil es-MX en la librería pública. Truco que funcionó: usa una voz femenina joven (ej. Barbara Mexicana) y aplica en ffmpeg `asetrate=44100*1.17,aresample=44100,atempo=0.8547` para subir el pitch sin acelerar el ritmo, más un filtro de teléfono (`highpass=f=300,lowpass=f=3400`) si la línea del niño va por llamada — el filtro ayuda a que el truco de pitch no se note tanto.
+
+**Para personajes nuevos:** busca primero en la librería propia del usuario (`ELEVENLABS_GET_VOICES`), y si no hay nada que encaje, en la librería pública (`ELEVENLABS_GET_SHARED_VOICES`) filtrando por `language:es` y los descriptores que necesites (`deep`, `husky`, `sultry`, `sensual`...). **Antes de comprometer un personaje a 30+ líneas, genera una sola línea de audición** con el mismo texto que usarías para el otro elenco y mándasela al usuario para aprobar — cambiar de voz a mitad de producción cuesta rehacer toda la mezcla.
+
+## 2. Dirección vocal — el sello erótico del canal (OBLIGATORIO)
+
+La Nocturna se distingue por voces sensuales con dinámica real — nada plano, nunca.
+
+- **Stability baja siempre.** Selene y las líneas íntimas en general: 0.25-0.40. Fuera de escenas íntimas, sube un poco (0.40-0.50) para diálogo normal, pero nunca por encima de 0.50 en este show — la stability alta mata el erotismo igual que mató al Narrador plano de Radio Medianoche (misma física del modelo, mismo error a evitar).
+- **Cada línea lleva su tag único** según el momento: `[sultry]`, `[breathy]`, `[whispering]`, `[low and intimate]`, `[breathless]`, `[voice trembling]`, `[sighs]`, `[gasps]`. Prohibido repetir el mismo tag genérico en toda una escena.
+- **Subidas y bajadas de volumen dentro de la misma escena:** alterna `[whispered, very close to the mic]` con `[louder, urgent]`. Los "..." en el guion son pausas reales — respétalas en el texto que mandas a generar.
+- **Gemidos, suspiros y respiraciones van como tomas cortas separadas**, no metidos a media frase de una línea larga — se mezclan después debajo de la escena en ffmpeg. Genera cada una como su propio archivo.
+- **Regla dura para líneas casi sin palabras (gemidos, suspiros, respiraciones): el tag tiene que ser CORTO.** Máximo 3-4 palabras (`[soft moan]`, `[breathless, whispering]`, `[heavy breathing]`). **Nunca uses una etiqueta narrativa larga tipo oración** (ej. `[lost in the static, her last whisper — and it is not a professional whisper, it is the whisper of a woman the story left awake and burning]`). Esto no es solo estilo: cuando el texto hablado real es mínimo ("Mmm...", "Despacio...", una interjección), el modelo tiene poco diálogo verdadero para anclarse, y con una etiqueta larga el riesgo real es que **vocalice parte del tag en inglés dentro del audio** — pasó en producción real en "Amor Prohibido" (dos líneas tuvieron que regenerarse por esto). Cuanto menos texto real tiene la línea, más corta y estándar debe ser su etiqueta.
+- **Selene se erotiza narrando.** En las escenas de encuentro físico, su narración se graba en progresión: empieza en `[low, velvet]` y termina en `[aroused, breathy, slow]` — ella no cuenta la escena desde afuera, la está sintiendo. Esto tiene que estar ya insinuado en cómo escribiste la acotación del guion (ver Regla de oficio #6 en `SKILL.md`), no es algo que se improvisa solo en producción.
+- **Remate erótico sin ser gráfico:** la técnica que mejor funcionó fue que Selene le entregue la escena a la imaginación de la oyente después de un tramo sensorial breve — "lo demás te lo dejo a ti, corazón" — en vez de narrar el encuentro completo. Es más efectivo en audio que describirlo todo.
+
+## 3. Efectos y música — KieAI vía Composio
+
+Mismo flujo que Radio Medianoche — reutilízalo sin modificar:
+
+- Herramientas: `KIEAI_GENERATE_SOUNDS` (envía la generación, regresa `taskId`) y `KIEAI_GET_MUSIC_DETAILS` (poll con el `taskId` hasta `status: SUCCESS`).
+- Prompts en **inglés**, descriptivos y concretos. `sound_loop: true` para ambientes/música continuos, `sound_loop: false` para efectos puntuales.
+- Modelo `V5` o `V5_5` — si uno falla con error 500, reintenta con el otro modelo o una redacción distinta; es inestabilidad transitoria, no rechazo de contenido. Puede necesitar 2-3 reintentos incluso para SFX inocuos (bobby pins cayendo falló 3 veces seguidas en producción real) — si un solo efecto muy específico se resiste tras varios intentos, sintetízalo con ffmpeg (ruido filtrado + envolvente) en vez de seguir insistiendo.
+- **Descarga bloqueada — flujo obligatorio:** los archivos de KieAI (dominio `tempfile.aiquickdraw.com`, y también su alias `musicfile.kie.ai`) están bloqueados por el proxy de salida de este entorno. No lo intentes rodear. Genera, dale al usuario los enlaces directos en una tabla, que los descargue y te los reenvíe al chat, identifícalos por el hash del nombre de archivo. Las voces de ElevenLabs sí se descargan sin problema (bucket distinto).
+
+**Música por escena:** en este show la música pesa más que en un thriller — bolero con vinilo para el tema/apertura, piano íntimo para Selene, instrumental sensual con pulso para escenas de encuentro físico, cuerdas emotivas para vuelcos, guitarra para Confesiones a medianoche. Si una escena tiene un instrumento diegético (un violín de niño, un piano que toca un personaje), genéralo como pieza aparte con errores/imperfección si el personaje no es profesional — sonó mucho mejor que una interpretación perfecta.
+
+**Música de suspenso (para el hilo de conflicto real y los sobresaltos, ver `SKILL.md` Regla de oficio #8):** distinta a la música romántica de arriba — cuerdas tensas, piano nervioso, percusión mínima, en la misma familia que "cuerda tensa" ya usada para los insomnios de Amor Prohibido, pero con permiso de subir un poco más de presencia justo antes de un sobresalto. Genérala como cama de escena igual que las demás (`sound_loop: true`), y en la mezcla déjala más cerca del diálogo de lo habitual en el compás inmediatamente previo al `[SFX SÚBITO — SOBRESALTO N]` — el contraste entre esa cama tensa y el corte seco del sobresalto es lo que vende el susto. Después del sobresalto, vuelve a la cama romántica/ambiente normal de la escena.
+
+## 4. Ensamblaje y mezcla — ffmpeg
+
+### 4.1 Estructura por escena
+1. Concatena las líneas de voz + los SFX puntuales en secuencia con el demuxer `concat`, insertando el efecto donde el guion lo marca. Gaps: ~0.6s entre líneas (`silence.mp3`), ~0.3s junto a un SFX puntual (`silence_short.mp3`), ~1.2s al cerrar una escena (`silence_long.mp3`).
+2. Genera la cama de ambiente/música en loop a la duración total de la escena con fade in/out de 1-1.5s: `ffmpeg -stream_loop -1 -i cama.mp3 -t <duración> -af "afade=t=in:st=0:d=1,afade=t=out:st=<duración-1.5>:d=1.5,volume=-XdB"`.
+3. Mezcla voz+SFX (capa principal) con la(s) cama(s) de fondo usando `amix=inputs=N:duration=first:normalize=0` — **`normalize=0` es obligatorio**, si no ffmpeg reescala las capas automáticamente y destruye el calibrado que acabas de hacer a mano.
+
+### 4.2 Calibración — nunca por peso a ojo, siempre por medición
+1. `ffmpeg -i archivo.mp3 -af volumedetect -f null -` en cada capa por separado (voz+SFX, ambiente, música) y anota `mean_volume` y `max_volume`.
+2. Calcula la atenuación en dB que necesita cada capa de fondo para caer al nivel objetivo relativo a la voz, no un porcentaje arbitrario.
+3. Después de mezclar, mide otra vez el bloque final y compara contra la voz sola del mismo bloque (antes de mezclar). **El delta sano está entre 0.1 y 0.8dB** — si una escena sube más de 1.5dB al mezclar, el ambiente o la música están demasiado presentes ahí, aunque el mismo peso funcione bien en otra escena (la proporción de silencio/diálogo de cada bloque cambia cuánto se nota el fondo).
+4. **Haz esta comparación en TODAS las escenas del episodio antes de entregar, no solo en la que el usuario reportó.** En producción real de "Amor Prohibido", un problema reportado en una escena resultó ser un síntoma de un problema sistemático (una voz completa 8dB por debajo del resto del elenco) que afectaba las 36 líneas de un personaje, no solo las 2 que se habían notado. Medir todo de una vez cuesta un script, no medirlo cuesta rehacer la mezcla varias veces.
+
+### 4.3 Voces con picos irregulares (susurros, breathy, líneas íntimas)
+Una voz que suena "baja" o "apenas se escucha" en algunas líneas casi nunca se arregla solo subiendo la ganancia (`volume=+XdB`):
+- **Diagnóstico:** mide `mean_volume` y `max_volume` de la toma. Si el pico (`max_volume`) ya está cerca de 0dB pero la media sigue muy baja, la toma tiene un rango dinámico grande (una respiración o énfasis puntual muy alto en medio de una entrega mayormente susurrada) — subir la ganancia general se topa con ese pico y protege contra el clipping subiendo casi nada.
+- **Solución que funcionó:** un limitador de ataque rápido dirigido solo a domar ese pico puntual, no un compresor de rango amplio (un compresor con umbral bajo/ratio alto termina aplastando también las partes buenas y el resultado sale peor, no mejor — pasó en producción real, hubo que revertir y cambiar de técnica):
+  ```
+  ffmpeg -i toma.mp3 -af "alimiter=limit=0.18:attack=1:release=60:level=false" toma_limitada.mp3
+  ```
+  Mide de nuevo, y ahora sí aplica el `volume=+XdB` necesario para llegar al nivel objetivo (el de la voz de referencia del elenco), con un margen de seguridad de -2dB contra el nuevo pico ya domado.
+- **Aplica esto a TODAS las tomas del personaje afectado, no solo a las que suenen mal a simple oído** — en la práctica casi todas las tomas de una voz susurrante de base tienen algún grado del mismo problema en distinto nivel, y arreglar solo las peores dos deja el resto todavía por debajo del resto del elenco.
+
+### 4.4 SFX insertados directo en la pista de diálogo (no en la cama de ambiente)
+Efectos puntuales como una puerta, un carrito, papel rompiéndose van insertados directo en la secuencia de concat entre líneas de voz, no como capa de `amix`. **Mide cada uno igual que a una toma de voz.** El riesgo no es el pico — es que el efecto sea **sostenido y fuerte durante toda su duración** (un carrito con botellas traqueteando 14 segundos completos a 8dB más fuerte que el diálogo alrededor sí se siente como ruido molesto, aunque no haga clipping). Si el `mean_volume` del efecto se aleja más de ~2-3dB del `mean_volume` de las voces alrededor, atenúalo hasta emparejarlo antes de dar la escena por terminada.
+
+### 4.5 Ambientes molestos — cuando la solución es suprimir, no atenuar
+No todos los ambientes generados con KieAI valen la pena conservar. Si un ambiente (ej. "oficina de noche" con zumbido de aire acondicionado y luces fluorescentes) resulta molesto al oído aunque esté bien calibrado en dB, la solución correcta puede ser **quitarlo por completo de la mezcla**, no seguir bajándole el volumen. Si la escena ya tiene una cama musical, esa sola suele bastar para dar atmósfera sin el ruido de fondo problemático. No tengas apego a un ambiente generado solo porque costó producirlo.
+
+### 4.6 Masterización final
+Después de concatenar todas las escenas mezcladas en el episodio final:
+1. Verifica pico: `ffmpeg -i final.mp3 -af volumedetect -f null -`. Si `max_volume` está en 0.0dB o cerca, hay riesgo de clipping.
+2. Aplica headroom + limitador: `ffmpeg -i final.mp3 -af "volume=-3dB,alimiter=limit=0.891:level=false" master.mp3`. Verifica que el pico quede entre -2 y -3dB.
+3. Si el archivo pesa más de 30MB (límite de envío), reencodea a 96kbps para entrega: `ffmpeg -i master.mp3 -c:a libmp3lame -b:a 96k master-96k.mp3` — a esa tasa un episodio de ~35 min pesa ~24MB, dentro del límite, sin pérdida perceptible en diálogo hablado.
+
+### 4.7 Estructura de script recomendada
+Mantén un script Python reconstruible (como `build_amor.py`/`rebuild_mix.py` del Episodio 2) que separe: normalización de cada toma → concat por bloque de escena → `bed_mix` (cama + capa principal) por escena → ensamblaje final. Cuando corrijas una sola toma o un solo ambiente, así puedes re-normalizar solo lo necesario y volver a correr el pipeline completo en minutos en vez de rehacer todo a mano.
+
+### 4.8 Camas musicales que "se ciclan" — el error más caro de calibrar tarde
+Si una cama de música/ambiente generada (KieAI o de librería) dura pocos segundos (2-8s) y la pones en loop (`-stream_loop -1 -t <duración de la escena>`) para cubrir una escena de 100+ segundos, el oyente **sí** nota el ciclo — se repite 20, 30, 40+ veces y suena a fondo mecánico, no a ambiente. Esto pasó en producción real de "Empezar de Nuevo" en 4 escenas distintas (el ID de estación con una pista de 2.4s, la gala con una de 8.2s, la primera cita con una de 7s, y una escena íntima con una de 3.7s) — el usuario lo detectó por minuto exacto en 4 rondas separadas antes de que se corrigiera todo de una vez.
+
+- **Diagnóstico preventivo, antes de mezclar:** mide la duración de cada fuente de cama (`ffprobe`) contra la duración de la escena que va a cubrir. Si el cociente (duración escena / duración fuente) pasa de ~10-15 repeticiones, la cama se va a notar cíclica sin importar cuánto la bajes de volumen.
+- **La solución no es solo bajar el volumen — es no llenar la escena completa.** Deja que la cama sea un toque de arranque de escena: 5-8 repeticiones de la fuente corta (12-40 segundos reales) con fade out, posicionada al inicio de la escena, y **después de eso, silencio — la escena sigue seca**, con el diálogo llevando todo el peso. Esto es exactamente lo que Selene y el resto del elenco necesitan de todos modos: una cama de fondo casi nunca tiene que sonar durante los 100+ segundos completos de una escena para cumplir su función de "situar" el lugar.
+  ```
+  ffmpeg -stream_loop -1 -i cama_corta.mp3 -t <n_loops * duración_fuente> -af "afade=t=in:st=0:d=1,afade=t=out:st=<clip_dur-3>:d=3" clip.wav
+  ffmpeg -i clip.wav -af "adelay=<inicio_escena_ms>|<inicio_escena_ms>" cama_final.wav
+  ```
+- **Sonidos puntuales y agudos (campanas, timbres, bells) cortan sobre el diálogo aunque el `mean_volume` esté bajo** — su pico transitorio es lo que compite, no su promedio. Si una cama tiene ese perfil, pásale un `alimiter` suave antes de fijar el volumen objetivo (`alimiter=limit=0.5:attack=5:release=100`), igual que a una voz con picos irregulares (ver 4.3).
+- **Trampa técnica con `adelay` + `-t` en un solo comando de ffmpeg:** si combinas `-stream_loop -1 -i src -t <duración> -af "...,adelay=<ms>|<ms>"` en una sola llamada, el `-t` se aplica como límite de duración del *output*, no del contenido antes del delay — el resultado es que el clip queda **completamente en silencio** (el delay empuja el contenido real más allá del corte de `-t`). Sepáralo siempre en dos pasos: primero genera el contenido con loop+fade y su duración real, y solo *después*, en un segundo comando sin `-t`, aplícale el `adelay`.
+- **Si necesitas resaltar un SFX puntual (ej. un teléfono vibrando) que queda tapado por una cama musical que sigue sonando en ese mismo instante, no le subas solo volumen al SFX** — duckea la cama con un `volume=-XdB:enable='between(t,<inicio>,<fin>)'` justo en esa ventana de tiempo, además de reforzar el SFX. Los dos ajustes juntos, no uno solo, es lo que garantiza que se distinga con claridad.
+- **Los sonidos de referencia que sube el usuario (aunque vengan de otra herramienta, ej. Magnific) tienen prioridad sobre lo generado por KieAI o sintetizado en ffmpeg** — si el usuario los proporciona directamente, úsalos tal cual en vez de insistir en la versión generada.
+
+### 4.9 Lecciones del Episodio 4 ("Tres Almas") — calibración de SFX y proceso
+
+- **SFX puntuales: calibra por PICO objetivo medido, nunca con un `volume=-XdB` a ciegas.** En producción real del Ep. 4, aplicar "volume=-16dB" como si fuera un nivel absoluto dejó los cajones del cierre inaudibles — el archivo fuente ya venía con mean de -35dB, y la "atenuación" lo enterró. El método correcto: mide el `max_volume` nativo del SFX, calcula `ganancia = pico_objetivo - pico_nativo`, y aplica esa ganancia. Picos objetivo que funcionaron: sobresaltos -4dB (con alimiter=0.6 antes), SFX narrativos importantes (cajones, teléfono, timbre pequeño) -10 a -12dB, SFX de textura (escritura, notificaciones) -14 a -16dB.
+- **Volumen de camas musicales: el punto dulce quedó 4dB arriba de lo que el delta de mezcla sugería.** Con camas a -28/-30dB el delta voz-vs-mezcla era casi 0.0dB (técnicamente "perfecto" según 4.2) pero el usuario reportó la música como "apenas un murmullo". El rango que aprobó: **-20 a -26dB según la escena** (íntimas más presentes ~-18/-20, diálogo normal -24/-26). El criterio de delta de 4.2 marca el TECHO para no competir con la voz, no el nivel deseable — apunta más alto de entrada.
+- **Un tono de teléfono antes de que contesten necesita su propio hueco en el timeline** — recorta el SFX a ~2s con fade y agrega un gap de silencio a la medida ANTES de la línea del que contesta (en vez del gap estándar de 0.6s), para que el tono suene completo y el personaje conteste después, no encima.
+- **Revisa congruencia narrativa del guion ANTES de generar voces**: en el Ep. 4 el usuario detectó en el audio final 3 inconsistencias de texto (un secreto que un personaje "ya sabía" vs "nadie sabe", un "Las tres" por "Los tres", una referencia a un momento que el personaje no presenció) que costaron regenerar 3 líneas y rearmar la mezcla. Una pasada de lectura de continuidad sobre el guion terminado — quién sabe qué, y desde cuándo, género de los grupos, qué presenció cada personaje — es mucho más barata antes del TTS que después.
+- **El manifiesto de mezcla como JSON + scripts reconstruibles funcionó**: `lines_tagged.json` (id, personaje, texto, tag, voice_id, stability) + `line_times.json`/`scene_times.json` + `build_beds.py`/`build_sfx.py` que leen esos JSON. Cuando el usuario pidió subir la música, fue un sed sobre el script de camas + re-correr 2 scripts; cuando pidió corregir 3 líneas, fue regenerar 3 archivos y re-correr el pipeline. Nunca edites la mezcla "a mano" sin actualizar el manifiesto.
